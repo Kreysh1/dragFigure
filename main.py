@@ -1,5 +1,6 @@
 import cv2 as cv
 import time
+import mediapipe as mp
 
 ###### Capture Resolution ######
 wCam, hCam = 1280, 720
@@ -18,8 +19,17 @@ cam.set(3, wCam)
 cam.set(4,hCam)
 previousTime = 0
 
+mpHands = mp.solutions.hands
+hands = mpHands.Hands()
+
+
 while True:
     success, img = cam.read()
+    imgRGB = cv.cvtColor(img,cv.COLOR_BGR2RGB)
+
+    #Hand Detection
+    results = hands.process(imgRGB)
+    print(results.multi_hand_landmarks)
 
     #Frames Per Second
     currentTime = time.time()
