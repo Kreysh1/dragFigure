@@ -1,6 +1,8 @@
 import cv2 as cv
 import time
 import mediapipe as mp
+import handTrackingModule as htm
+from PIL import ImageColor
 
 ###### Capture Resolution ######
 wCam, hCam = 1280, 720
@@ -10,26 +12,23 @@ wCam, hCam = 1280, 720
 xPos, yPos = 10,40
 font = cv.FONT_HERSHEY_COMPLEX
 fontScale = 1.5
-fontColor = [255, 0, 255]
+fontColor = ImageColor.getcolor("#9400D3", "RGB")
 fontThickness = 2
+previousTime = 0
 ################################
 
 cam = cv.VideoCapture(0)
 cam.set(3, wCam)
 cam.set(4,hCam)
-previousTime = 0
 
-mpHands = mp.solutions.hands
-hands = mpHands.Hands()
-
+detector = htm.HandDetector()
 
 while True:
     success, img = cam.read()
-    imgRGB = cv.cvtColor(img,cv.COLOR_BGR2RGB)
-
-    #Hand Detection
-    results = hands.process(imgRGB)
-    print(results.multi_hand_landmarks)
+    img = detector.findHands(img)
+    lmList = detector.findPosition(img)
+    if len(lmList) != 0:
+        print(lmList[4])
 
     #Frames Per Second
     currentTime = time.time()
