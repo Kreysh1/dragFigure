@@ -1,119 +1,112 @@
-# Python v3.9.7
-# Setup Python --------------------------------------------------------- #
-from os import truncate
-import pygame, sys
-from pygame import image
-from pygame.draw import circle, rect
-from pygame.gfxdraw import box
-import drawFigure as df
+import pygame
+import time
+import random
+from settings import *
+from background import Background
+from hand import Hand
+from hand_tracking import HandTracking
+from figure import Figure
+from bomb import Bomb
+import cv2
+import ui
 
-# Setup pygame/window -------------------------------------------------- #
-mainClock = pygame.time.Clock()
-from pygame.locals import *
-pygame.init()
-monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-pygame.display.set_caption('Drag Figure')
-screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
+class Game:
+    def __init__(self, surface):
+        self.surface = surface
+        self.background = Background()
 
-resolutions = pygame.display.list_modes()
-#fullscreen = False
+        # Load camera
+        self.cap = cv2.VideoCapture(0)
 
-# Load Images ------------------------------------------------------- #
-gameImage_0 = pygame.image.load("sprites/button_game_0.png").convert()
-gameImage_1 = pygame.image.load("sprites/button_game_1.png").convert()
-optionsImage_0 = pygame.image.load("sprites/button_options_0.png").convert()
-optionsImage_1 = pygame.image.load("sprites/button_options_1.png").convert()
-exitImage_0 = pygame.image.load("sprites/button_exit_0.png").convert()
-exitImage_1 = pygame.image.load("sprites/button_exit_1.png").convert()
-
-# Create button instancies ----------------------------------------------------------------------- #
-start_button = df.Button(50, 100, 1, gameImage_0, gameImage_1)
-options_button = df.Button(50, 200, 1, optionsImage_0, optionsImage_1)
-exit_button = df.Button(50, 300, 1, exitImage_0, exitImage_1)
+        self.sounds = {}
+        self.sounds["explosion"] = pygame.mixer.Sound(f"Assets/Sounds/explosion.wav")
+        self.sounds["explosion"].set_volume(SOUNDS_VOLUME)
+        self.sounds["screaming"] = pygame.mixer.Sound(f"Assets/Sounds/screaming.wav")
+        self.sounds["screaming"].set_volume(SOUNDS_VOLUME)
 
 
-# Main Menu Module ---------------------------------------------------------- #
-def main_menu():
-    while True:
+    def reset(self): # reset all the needed variables
+        self.hand_tracking = HandTracking()
+        self.hand = Hand()
+        self.objects = []
+        self.objects_spawn_timer = 0
+        self.score = 0
+        self.game_start_time = time.time()
 
-        # Background ------------------------------------------------------------------------------ #
-        screen.fill((0,0,0))
 
-        # Draws ------------------------------------------------------------------------------ #
-        df.drawtext('Menú Principal', (255, 255, 255), 25, screen, screen.get_width()/2, 15, alignment="midtop")
+    def spawn_objects(self):
+        t = time.time()
+        if t > self.objects_spawn_timer:
+            self.objects_spawn_timer = t + FIGURES_SPAWN_TIME
 
-        start_button.draw(screen)
-        options_button.draw(screen)
-        exit_button.draw(screen)
+            # increase the probability that the object will be a bomb over time
+            nb = (GAME_DURATION-self.time_left)/GAME_DURATION * 100  / 2  # increase from 0 to 50 during all  the game (linear)
+            if random.randint(0, 100) < nb:
+                self.objects.append(Bomb())
+            else:
+                self.objects.append(Figure())
 
-        # Logic ------------------------------------------------------------------------------ #
-        if start_button.clicked:
-            game()
-        if options_button.clicked:
-            options()
-        if exit_button.clicked:
-            pygame.quit()
-            sys.exit()
+            # spawn a other figure after the half of the game
+            if self.time_left < GAME_DURATION/2:
+                self.objects.append(Figure())
 
-        # Events -------------------------------------------------- #
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            # if event.type == VIDEORESIZE:
-            #     screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    pygame.quit()
-                    sys.exit()
+    def load_camera(self):
+        _, self.frame = self.cap.read()
 
-        pygame.display.update()
-        mainClock.tick(60)
 
-# In-Game Module ---------------------------------------------------------- #
-def game():
-    running = True
-    score = 0
-    while running:
-        score = score + 1
+    def set_hand_position(self):
+        self.frame = self.hand_tracking.scan_hands(self.frame)
+        (x, y) = self.hand_tracking.get_hand_center()
+        self.hand.rect.center = (x, y)
 
-        # Background ------------------------------------------------------------------------------ #
-        screen.fill((0,0,0))
+    def draw(self):
+        # draw the background
+        self.background.draw(self.surface)
+        # draw the objects
+        for object in self.objects:
+            object.draw(self.surface)
+        # draw the hand
+        self.hand.draw(self.surface)
+        # draw the score
+        ui.draw_text(self.surface, f"Score : {self.score}", (5, 5), COLORS["score"], font=FONTS["medium"],
+                    shadow=True, shadow_color=(255,255,255))
+        # draw the time left
+        timer_text_color = (160, 40, 0) if self.time_left < 5 else COLORS["timer"] # change the text color if less than 5 s left
+        ui.draw_text(self.surface, f"Time left : {self.time_left}", (SCREEN_WIDTH//2, 5),  timer_text_color, font=FONTS["medium"],
+                    shadow=True, shadow_color=(255,255,255))
 
-        # Draws ------------------------------------------------------------------------------ #
-        df.drawtext('Juego', (255, 255, 255), 25, screen, screen.get_width()/2, 15, alignment="midtop")
 
-        df.drawtext('Puntos: ' + str(score), (255, 255, 255), 25, screen, 15, 15)
-   
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    running = False
-                    df.save("C:\\tmp\\score.txt", str(score))
-        pygame.display.update()
-        mainClock.tick(60)
+    def game_time_update(self):
+        self.time_left = max(round(GAME_DURATION - (time.time() - self.game_start_time), 1), 0)
 
-# Options Module ---------------------------------------------------------- #
-def options():
-    running = True
-    while running:
-         # Background ------------------------------------------------------------------------------ #
-        screen.fill((0,0,0))
 
-        # Draws ------------------------------------------------------------------------------ #
-        df.drawtext('Opciones', (255, 255, 255), 25, screen, screen.get_width()/2, 15, alignment="midtop")
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
-                    running = False
-        pygame.display.update()
-        mainClock.tick(60)
+    def update(self):
 
-main_menu()
+        self.load_camera()
+        self.set_hand_position()
+        self.game_time_update()
+
+        self.draw()
+
+        if self.time_left > 0:
+            self.spawn_objects()
+            (x, y) = self.hand_tracking.get_hand_center()
+            self.hand.rect.center = (x, y)
+            self.hand.left_click = self.hand_tracking.hand_closed
+            print("Hand closed", self.hand.left_click)
+            if self.hand.left_click:
+                self.hand.image = self.hand.image_smaller.copy()
+            else:
+                self.hand.image = self.hand.orig_image.copy()
+            self.score = self.hand.kill_objects(self.objects, self.score, self.sounds)
+            for object in self.objects:
+                object.move()
+
+        else: # when the game is over
+            if ui.button(self.surface, 540, "Continue", click_sound=self.sounds["explosion"]):
+                return "menu"
+
+
+        cv2.imshow("Frame", self.frame)
+        cv2.waitKey(1)

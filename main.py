@@ -1,40 +1,70 @@
-import cv2 as cv
-import time
-import mediapipe as mp
-import handTrackingModule as htm
-from PIL import ImageColor
+# Setup Python ----------------------------------------------- #
+import pygame
+import sys
+import os
+from settings import *
+from game import Game
+from menu import Menu
 
-###### Capture Resolution ######
-wCam, hCam = 1280, 720
-################################
 
-###### FPS Configuration ######
-xPos, yPos = 10,40
-font = cv.FONT_HERSHEY_COMPLEX
-fontScale = 1.5
-fontColor = ImageColor.getcolor("#9400D3", "RGB")
-fontThickness = 2
-previousTime = 0
-################################
+# Setup pygame/window --------------------------------------------- #
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (100,32) # windows position
+pygame.init()
+pygame.display.set_caption(WINDOW_NAME)
+SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT),0,32)
 
-cam = cv.VideoCapture(0)
-cam.set(3, wCam)
-cam.set(4,hCam)
+mainClock = pygame.time.Clock()
 
-detector = htm.HandDetector()
+# Fonts ----------------------------------------------------------- #
+fps_font = pygame.font.SysFont("coopbl", 22)
 
+# Music ----------------------------------------------------------- #
+pygame.mixer.music.load("Assets/Sounds/Komiku_-_12_-_Bicycle.mp3")
+pygame.mixer.music.set_volume(MUSIC_VOLUME)
+pygame.mixer.music.play(-1)
+# Variables ------------------------------------------------------- #
+state = "menu"
+
+# Creation -------------------------------------------------------- #
+game = Game(SCREEN)
+menu = Menu(SCREEN)
+
+# Functions ------------------------------------------------------ #
+def user_events():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
+
+
+def update():
+    global state
+    if state == "menu":
+        if menu.update() == "game":
+            game.reset() # reset the game to start a new game
+            state = "game"
+    elif state == "game":
+        if game.update() == "menu":
+            state = "menu"
+    pygame.display.update()
+    mainClock.tick(FPS)
+
+
+# Loop ------------------------------------------------------------ #
 while True:
-    success, img = cam.read()
-    img = detector.findHands(img)
-    lmList = detector.findPosition(img)
-    if len(lmList) != 0:
-        print(lmList[4])
 
-    #Frames Per Second
-    currentTime = time.time()
-    fps = 1/(currentTime-previousTime)
-    previousTime = currentTime
-    cv.putText(img, f'FPS: {int(fps)}', (xPos,yPos), font, fontScale, fontColor, fontThickness)
+    # Buttons ----------------------------------------------------- #
+    user_events()
 
-    cv.imshow("Image", img)
-    cv.waitKey(1)
+    # Update ------------------------------------------------------ #
+    update()
+
+    # FPS
+    if DRAW_FPS:
+        fps_label = fps_font.render(f"FPS: {int(mainClock.get_fps())}", 1, (255,200,20))
+        SCREEN.blit(fps_label, (5,5))
