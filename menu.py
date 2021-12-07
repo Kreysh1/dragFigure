@@ -16,7 +16,7 @@ class Menu:
         self.background.draw(self.surface)
         # draw title
         ui.draw_text(self.surface, GAME_TITLE, (SCREEN_WIDTH//2, 120), COLORS["title"], font=FONTS["big"],
-                    shadow=True, shadow_color=(255,255,255), pos_mode="center")
+                    shadow=True, shadow_color=(0,0,0), pos_mode="center")
 
 
     def update(self):

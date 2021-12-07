@@ -2,10 +2,12 @@ import pygame
 
 def load(img_path, size="default", convert="alpha", flip=False):
     if convert == "alpha":
-        img = pygame.image.load(img_path).convert_alpha()
+        #print(img_path)
+        img = pygame.image.load(img_path).convert_alpha()    
     else:
+        #print(img_path)
         img = pygame.image.load(img_path).convert()
-
+        
     if flip:
         img = pygame.transform.flip(img, True, False)
 

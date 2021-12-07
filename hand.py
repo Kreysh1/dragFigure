@@ -11,8 +11,8 @@ class Hand:
         self.image_smaller = image.load("Assets/hand.png", size=(HAND_SIZE - 50, HAND_SIZE - 50))
         self.rect = pygame.Rect(SCREEN_WIDTH//2, SCREEN_HEIGHT//2, HAND_HITBOX_SIZE[0], HAND_HITBOX_SIZE[1])
         self.left_click = False
+        self.dragging = False
         #self.hand_tracking = HandTracking()
-
 
     def follow_mouse(self): # change the hand pos center at the mouse pos
         self.rect.center = pygame.mouse.get_pos()
@@ -31,19 +31,31 @@ class Hand:
         if DRAW_HITBOX:
             self.draw_hitbox(surface)
 
-
     def on_object(self, objects): # return a list with all objects that collide with the hand hitbox
-        return [object for object in objects if self.rect.colliderect(object.rect)]
+        list = [object for object in objects if self.rect.colliderect(object.rect)]
+        if list != []:
+            return list[0]
+
 
 
     def kill_objects(self, objects, score, sounds): # will kill the objects that collide with the hand when the left mouse button is pressed
-        if self.left_click: # if left click
-            for object in self.on_object(objects):
-                object_score = object.kill(objects)
-                score += object_score
-                sounds["explosion"].play()
-                if object_score < 0:
-                    sounds["screaming"].play()
+        if not self.dragging:
+            self.object = self.on_object(objects)
         else:
+            self.object = self.object
+
+        if self.left_click and self.object!=None: # if left click
+                if self.object.type == "bomb":
+                    object_score = self.object.kill(objects)
+                    score += object_score
+                    sounds["explosion"].play()
+                elif self.object.type == "figure":
+                    self.dragging = True
+                    self.object.drag(self.rect.center, True)
+                    self.object = self.object
+        else:
+            if self.dragging:
+                self.object.drag(self.rect.center, False)
             self.left_click = False
+            self.dragging = False
         return score
